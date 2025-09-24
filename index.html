@@ -1,35 +1,73 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>LeanCloud 简单同步示例</title>
-    <!-- 引入 LeanCloud JavaScript SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.13.1/dist/av-min.js"></script>
+  <meta charset="utf-8" />
+  <title>LeanCloud 极简实时共享</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 2rem; }
+    textarea { width: 100%; height: 200px; font-size: 1rem; padding: .5rem; }
+    small { color: #666; }
+  </style>
 </head>
 <body>
-    <h1>LeanCloud 简单同步示例</h1>
-    <button onclick="createData()">创建数据</button>
-    <script>
-        // 初始化 LeanCloud，填入你自己的 AppID、AppKey 和服务器地址
-        AV.init({
-            appId: 'FsVjHfMtOx1lPLF8u76XAA87-gzGzoHsz',
-            appKey: '65lS1h9UnpHhbbl34YXGSlbh',
-            serverURL: 'https://fsvjhfmt.lc-cn-n1-shared.com'
-        });
-        function createData() {
-            // 创建 Todo 类的实例，Todo 是 LeanCloud 中的表名，可根据实际情况修改
-            const todo = new AV.Object('Todo');
-            // 设置 content 属性为 '测试数据'
-            todo.set('content', '测试数据');
-            // 保存到云端
-            todo.save().then((todo) => {
-                alert('数据创建成功，已同步到云端！');
-                console.log('创建的对象：', todo);
-            }).catch((error) => {
-                alert('数据创建失败：' + error.message);
-                console.error('创建失败：', error);
-            });
-        }
-    </script>
+
+  <h2>所有人共享的便签</h2>
+  <textarea id="note" placeholder="写点什么，所有人都能实时看到…"></textarea>
+  <p><small>内容自动保存，换台电脑打开也是最新版。</small></p>
+
+  <!-- LeanCloud 官方 JS-SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4/dist/av-min.js"></script>
+  <script>
+    /* ===== 1. 初始化 ===== */
+    const APP_ID = 'FsVjHfMtOxl1PLF8u76XAA87-gzGzoHsz';
+    const APP_KEY = '651S1h9UnpHhbbL34YXGS1bh';
+    const SERVER = 'https://fsvjhfmt.lc-cn-n1-shared.com';
+
+    AV.init({
+      appId: APP_ID,
+      appKey: APP_KEY,
+      serverURLs: { // 必须指定国内节点地址
+        push: SERVER,
+        stats: SERVER,
+        engine: SERVER,
+        api: SERVER
+      }
+    });
+
+    /* ===== 2. 定义数据表 ===== */
+    const Note = AV.Object.extend('SharedNote');
+
+    /* ===== 3. 页面加载时拉取最新内容 ===== */
+    async function loadNote() {
+      const query = new AV.Query(Note);
+      query.descending('updatedAt');
+      query.limit(1);
+      const list = await query.find();
+      if (list.length) {
+        document.getElementById('note').value = list[0].get('content');
+      }
+    }
+
+    /* ===== 4. 输入时自动保存 ===== */
+    let timer;
+    document.getElementById('note').addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(saveNote, 800);
+    });
+
+    async function saveNote() {
+      const text = document.getElementById('note').value;
+      const query = new AV.Query(Note);
+      query.descending('updatedAt');
+      query.limit(1);
+      let obj = await query.first();
+      if (!obj) obj = new Note();
+      obj.set('content', text);
+      await obj.save();
+    }
+
+    /* ===== 5. 启动 ===== */
+    loadNote();
+  </script>
 </body>
 </html>
